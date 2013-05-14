@@ -231,7 +231,7 @@ module Swiftcore
             #@content_length = nil
             @content_sent = 0
             #setup
-            if subsequent_data
+            if subsequent_data && keepalive
               self.receive_data(subsequent_data)
             else
               puts "Done with request"
