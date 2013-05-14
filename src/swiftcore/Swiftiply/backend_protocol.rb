@@ -60,6 +60,8 @@ module Swiftcore
             @id = preamble[11..22]
             ProxyBag.add_id(self, @id)
             @initialized = true
+            puts "Keep-Alive is initially #{@associate.keepalive}"
+            puts "Setting to true #{@associate.keepalive = true}"
           else
             # The worker that connected did not present the proper authentication,
             # so something is fishy; time to cut bait.
