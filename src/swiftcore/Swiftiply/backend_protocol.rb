@@ -153,7 +153,8 @@ module Swiftcore
             @headers << data
           end
         end
-
+        keepalive = true
+        puts "Keep-Alive is set forcably to #{keepalive}"
         if @headers_completed
           if @content_length && @content_length >= 0 && @content_sent + data.length >= @content_length
             @associate.send_data data.slice(0, @content_length - @content_sent) unless @dont_send_data
