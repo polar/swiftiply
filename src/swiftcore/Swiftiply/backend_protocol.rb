@@ -144,9 +144,9 @@ module Swiftcore
                 @swiftiply_close = true
               else
                 # Ugly and Slow
-                if (tdata.length > 7)
-                  fdata = tdata.slice(0,tdata.length-7)
-                  tdata = tdata.slice(-7,7)
+                if tdata.length > 7
+                  fdata = tdata.slice(0, tdata.length-7)
+                  tdata = tdata.slice(-7, 7)
                 else
                   fdata = ""
                 end
