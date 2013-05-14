@@ -104,10 +104,14 @@ module Swiftcore
                   @associate.close_connection_after_writing
                   @dont_send_data = true
                 else
+                  puts "Writing Headers"
+                  p @headers+Cnrn
                   @associate.send_data @headers + Crnrn
                 end
               end
             else
+              puts "Writing Headers"
+              p @headers+Cnrn
               @associate.send_data @headers + Crnrn
             end
 
@@ -202,6 +206,7 @@ module Swiftcore
                 @associate.reset_state
                 ProxyBag.remove_client(self) unless @associate
               else
+                puts "Closing Connection after write"
                 @associate.close_connection_after_writing
               end
             end
