@@ -119,6 +119,7 @@ module Swiftcore
             # on, unless the headers being returned indicate that the connection
             # should be closed.
             # So, check for a 'Connection: Closed' header.
+            puts "Keep-Alive is #{keepalive}"
             if keepalive = @associate.keepalive
               keepalive = false if @headers =~ /Connection: [Cc]lose/
               if @associate_http_version == C1_0
