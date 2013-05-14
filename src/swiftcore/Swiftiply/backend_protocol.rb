@@ -135,6 +135,7 @@ module Swiftcore
             if @look_for_close
               tdata = @push_back ? @push_back + data : data
               @push_back = nil
+              p tdata
               match = /^([\S\s]*)<!--SC->([\S\s]*)$/.match(tdata)
               if (match)
                 @associate.send_data match[1] if (match[1].length > 0) unless @dont_send_data
@@ -143,9 +144,9 @@ module Swiftcore
                 @swiftiply_close = true
               else
                 # Ugly and Slow
-                if tdata.length > 7
-                  fdata = tdata.slice(0, tdata.length-7)
-                  tdata = tdata.slice(-7, 7)
+                if (tdata.length > 7)
+                  fdata = tdata.slice(0,tdata.length-7)
+                  tdata = tdata.slice(-7,7)
                 else
                   fdata = ""
                 end
@@ -192,6 +193,7 @@ module Swiftcore
               @content_sent += data.length
             end
           end
+          puts "headers_completed2 #{id} #{@content_length} - #{@content_sent} #{@swiftiply_close} #{data.length} #{subsequent_data}"
           if @content_length && @content_length > 0 && @content_sent >= @content_length || @swiftiply_close
             # If @dont_send_data is set, then the connection is going to be closed elsewhere.
             unless @dont_send_data
