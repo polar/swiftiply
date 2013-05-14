@@ -120,6 +120,7 @@ module Swiftcore
               if @associate_http_version == C1_0
                 keepalive = false unless @headers == /Connection: Keep-Alive/i
               end
+              puts "Keep-Alive is reset to #{keepalive}"
             end
           else
             @headers << data
@@ -127,10 +128,10 @@ module Swiftcore
         end
 
         if @headers_completed
-          if @content_length && @content_length > 0 && @content_sent + data.length > @content_length
+          if @content_length && @content_length >= 0 && @content_sent + data.length >= @content_length
             @associate.send_data data.slice(0, @content_length - @content_sent) unless @dont_send_data
             subsequent_data = data.slice(@content_length - @content_sent, data.length - @content_sent)
-            @content_set = @content_length
+            @content_sent = @content_length
           else
             if @look_for_close
               tdata = @push_back ? @push_back + data : data
@@ -217,6 +218,9 @@ module Swiftcore
               @associate = nil
               ProxyBag.add_server self
             end
+          else
+            puts "No content_length, no close, and data already sent is #{@content_sent}"
+            p @headers
           end
         end
           # TODO: Log these errors!
