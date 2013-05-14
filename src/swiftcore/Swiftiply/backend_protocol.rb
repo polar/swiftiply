@@ -192,7 +192,7 @@ module Swiftcore
               @content_sent += data.length
             end
           end
-          puts "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data.length}"
+          puts "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
           if @content_length && @content_length >= 0 && @content_sent >= @content_length || @swiftiply_close
             # If @dont_send_data is set, then the connection is going to be closed elsewhere.
             unless @dont_send_data
