@@ -240,7 +240,7 @@ module Swiftcore
             end
           else
             if @content_length.nil? || @content_length < 0
-              puts "Content Length #{@content_length}, no close, and data already sent is #{@content_sent}"
+              puts "Content Length #{@content_length}, sent is #{@content_sent} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
               p @headers
             end
           end
