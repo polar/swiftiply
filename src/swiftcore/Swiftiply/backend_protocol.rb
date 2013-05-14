@@ -49,20 +49,29 @@ module Swiftcore
 
       def receive_data data
         unless @initialized
+          puts "Recived Data Initial"
+          p data
           # preamble = data.slice!(0..24)
           preamble = data[0..24]
+          puts "Preamble"
+          p preamble
           data   = data[25..-1] || C_empty
+          puts "Data"
+          p data
           keylen = preamble[23..24].to_i(16)
+          puts "Keylen #{keylen}"
           keylen = 0 if keylen < 0
           key = keylen > 0 ? data.slice!(0..(keylen - 1)) : C_empty
+          puts "Data"
+          p data
           #if preamble[0..10] == Cswiftclient and key == ProxyBag.get_key(@name)
           if preamble.index(Cswiftclient) == 0 and key == ProxyBag.get_key(@name)
+            puts "Passed with #{key}"
             @id = preamble[11..22]
             ProxyBag.add_id(self, @id)
             @initialized = true
-            puts "Keep-Alive is initially #{@associate.keepalive}"
-            puts "Setting to true #{@associate.keepalive = true}"
           else
+            puts "Nope Unauthenticated"
             # The worker that connected did not present the proper authentication,
             # so something is fishy; time to cut bait.
             close_connection
