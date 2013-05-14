@@ -225,7 +225,8 @@ module Swiftcore
           end
           # Check to see if we are done.
           # A Content-Length: 0 means that either no data is to be sent, or it is all to be sent
-          # before the connection closes.
+          # before the connection closes.   # @content_length of nil, means we are chunking.
+          # We keep doing that util we find a @swiftiply_close, or something bad happens.
 
           puts "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
           if @content_length && @content_sent >= @content_length || @swiftiply_close
