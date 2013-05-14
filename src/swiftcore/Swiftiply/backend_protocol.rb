@@ -163,13 +163,16 @@ module Swiftcore
             @content_sent = @content_length
           else
             if @look_for_close
+              puts "Looking for <!--SC->"
               tdata = @push_back ? @push_back + data : data
               @push_back = nil
               match = /^([\S\s]*)<!--SC->([\S\s]*)$/.match(tdata)
               if (match)
+                puts "Found <!--SC->"
                 @associate.send_data match[1] if (match[1].length > 0) unless @dont_send_data
                 @content_sent += match[1].length
                 subsequent_data = match[2] if match[2].length > 0
+                puts "Found <!--SC-> with #{subsequent_data ? subsequent_data.length : "no"} subsequent data"
                 @swiftiply_close = true
               else
                 # Ugly and Slow
@@ -207,17 +210,20 @@ module Swiftcore
                 if @push_back
                   if sdata.length > 0
                     @associate.send_data sdata unless @dont_send_data
+                    puts "Sending chunk of #{sdata.length}"
                     @content_sent += sdata.length
                     subsequent_data = nil
                   end
                 else
                   @associate.send_data tdata unless @dont_send_data
+                  puts "Sending chunk of #{tdata.length}"
                   @content_sent += tdata.length
                   subsequent_data = nil
                 end
               end
             else
               @associate.send_data data unless @dont_send_data
+              puts "Sending chunk of #{data.length}"
               subsequent_data = nil
               @content_sent += data.length
             end
