@@ -105,13 +105,13 @@ module Swiftcore
                   @dont_send_data = true
                 else
                   puts "Writing Headers"
-                  p @headers+Cnrn
+                  p @headers+Crnrn
                   @associate.send_data @headers + Crnrn
                 end
               end
             else
               puts "Writing Headers"
-              p @headers+Cnrn
+              p @headers+Crnrn
               @associate.send_data @headers + Crnrn
             end
 
