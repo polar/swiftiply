@@ -62,6 +62,8 @@ module Swiftcore
           puts "Keylen #{keylen}"
           keylen = 0 if keylen < 0
           key = keylen > 0 ? data.slice!(0..(keylen - 1)) : C_empty
+          puts "Key"
+          p key
           puts "Data"
           p data
           #if preamble[0..10] == Cswiftclient and key == ProxyBag.get_key(@name)
