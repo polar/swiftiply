@@ -145,7 +145,7 @@ module Swiftcore
             if keepalive = @associate.keepalive
               keepalive = false if @headers =~ /Connection: [Cc]lose/
               if @associate_http_version == C1_0
-                keepalive = false unless @headers == /Connection: Keep-Alive/i
+                keepalive = false unless @headers == /Connection: [Kk]eep-[Aa]live/i
               end
               puts "Keep-Alive is reset to #{keepalive}"
             end
@@ -153,8 +153,7 @@ module Swiftcore
             @headers << data
           end
         end
-        keepalive = true
-        puts "Keep-Alive is set forcably to #{keepalive}"
+
         if @headers_completed
           # We have sent the headers and separator already. Keep sending any counted content.
           # Content-Length: 0 is handled below.
