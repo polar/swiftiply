@@ -106,7 +106,7 @@ module Swiftcore
             elsif @headers =~ /Transfer-encoding:\s*chunked/
               @content_length = nil
             else
-              @content_length = -1
+              @content_length = 0
             end
 
             # Our Swiftiply Close Header. We are going to look for the <!--SC-> delimeter.
@@ -246,11 +246,6 @@ module Swiftcore
               puts "Done with request"
               @associate = nil
               ProxyBag.add_server self
-            end
-          else
-            if @content_length.nil? || @content_length < 0
-              puts "Content Length #{@content_length}, sent is #{@content_sent} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
-              p @headers
             end
           end
         end
