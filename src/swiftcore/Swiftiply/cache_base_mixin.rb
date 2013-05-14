@@ -33,7 +33,7 @@ module Swiftcore
 				if l == 0
 					@vw / 2
 				else
-					wait_time = (@vwtl * count) / (l * rt)
+					wait_time = (@vw * count) / (l * rt)
 					wait_time < rt ? rt * 2.0 : wait_time > @vw ? @vw : wait_time
 				end
 			end			

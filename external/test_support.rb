@@ -10,10 +10,7 @@ module SwiftcoreTestSupport
 		pid = nil
 		begin
 			raise NotImplementedError unless @fork_ok
-			unless pid = fork
-				Dir.chdir args[:dir]
-				exec(*args[:cmd])
-			end
+			pid = Process.spawn(args[:cmd].join(";"), :chdir => args[:dir], :out => ["test_out.log", "w", 0666], :err => ["test_err.log", "w", 0666] )
 		rescue NotImplementedError
 			@fork_ok = false
 			begin

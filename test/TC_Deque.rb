@@ -1,8 +1,10 @@
 require 'test/unit'
-require 'external/test_support'
+require './external/test_support'
 SwiftcoreTestSupport.set_src_dir
 require 'rbconfig'
 require 'swiftcore/deque'
+
+require "minitest/unit"
 
 class TC_Deque < Test::Unit::TestCase
 	@@testdir = SwiftcoreTestSupport.test_dir(__FILE__)
