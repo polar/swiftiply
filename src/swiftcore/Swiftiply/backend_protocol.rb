@@ -215,12 +215,15 @@ module Swiftcore
             if subsequent_data
               self.receive_data(subsequent_data)
             else
+              puts "Done with request"
               @associate = nil
               ProxyBag.add_server self
             end
           else
-            puts "No content_length, no close, and data already sent is #{@content_sent}"
-            p @headers
+            if @content_length.nil? || @content_length < 0
+              puts "Content Length #{@content_length}, no close, and data already sent is #{@content_sent}"
+              p @headers
+            end
           end
         end
           # TODO: Log these errors!
