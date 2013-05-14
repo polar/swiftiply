@@ -1,11 +1,13 @@
 require 'test/unit'
-require 'external/test_support'
+require './external/test_support'
 SwiftcoreTestSupport.set_src_dir
 require 'rbconfig'
 require 'net/http'
 require 'net/https'
 require 'swiftcore/Swiftiply'
 require 'yaml'
+
+require "minitest/unit"
 
 class TC_Swiftiply < Test::Unit::TestCase
 	@@testdir = SwiftcoreTestSupport.test_dir(__FILE__)
@@ -37,9 +39,10 @@ ECONF
 		Net::HTTP.start(hostname,port) {|http| http.get(url)}
 	end
 
-	def get_url_https(hostname, port, url)
+	def get_url_https(hostname, port, url, ca_file)
 		http = Net::HTTP.new(hostname, port)
 		http.use_ssl = true
+    http.ca_file = ca_file
 		http.start {http.request_get(url)}
 	end
 	
@@ -86,7 +89,8 @@ ECONF
 		while p = KillQueue.pop do
 			Process.kill("SIGKILL",p) if p
 			Process.wait p if p
-		end
+    end
+    sleep 4
 	end
 
 	# Configure a Swiftiply, change the config, HUP it, and see if the changes
@@ -113,16 +117,18 @@ ECONF
 		
 		swiftiply_pid = nil
 		assert_nothing_raised("setup failed") do
-			KillQueue << swiftiply_pid = SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+			KillQueue << swiftiply_pid = SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_HUP.conf"])
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+      sleep 2
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999"])
-			sleep 1
 		end
 
 		# Normal request for a sanity check.
 		response = get_url('127.0.0.1',29998,'/xyzzy')
-		assert_equal("GET /xyzzy HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+    assert_match(/^GET \/xyzzy HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 		
 		# Now rewrite the conf file to be a little different.
 		File.open(conf_file,'w+') {|fh| fh.write ConfBase.to_yaml }
@@ -156,11 +162,12 @@ ECONF
 		puts "\nTesting Evented Mongrel"
 		
 		assert_nothing_raised("setup failed") do
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join("#{@@testdir}/TC_Swiftiply",'mongrel'),
 				:cmd => ["#{Ruby} -I../../../src threaded_hello.rb"])
-			sleep 1
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
+      sleep 2
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join("#{@@testdir}/TC_Swiftiply",'mongrel'),
 				:cmd => ["#{Ruby} -I../../../src evented_hello.rb"])
+      sleep 2
 		end
 		
 		sleep 1
@@ -214,9 +221,10 @@ ECONF
 		DeleteQueue << conf_file
 		
 		assert_nothing_raised("setup failed") do
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_static_file.conf"])
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+      sleep 2
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999"])
 			# Make sure everything has time to start, connect, etc... before
 			# the tests are executed.
@@ -285,7 +293,7 @@ ECONF
 
 	def test_serve_static_file_caches
 		puts "\nTesting caches"
-		dc = File.join(Dir.pwd,'TC_Swiftiply')
+		dc = "#{@@testdir}/TC_Swiftiply"
 		dr = File.join(dc,'test_serve_static_file')
 		
 		smallfile_name = "smallfile#{Time.now.to_i}"
@@ -312,9 +320,10 @@ ECONF
 		DeleteQueue << conf_file
 		
 		assert_nothing_raised("setup failed") do
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_static_file.conf"])
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+      sleep 3
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999"])
 			# Make sure everything has time to start, connect, etc... before
 			# the tests are executed.
@@ -380,9 +389,10 @@ ECONF
 		DeleteQueue << conf_file
 		
 		assert_nothing_raised("setup failed") do
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_static_file_xsendfile.conf"])
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+      sleep 2
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src #{@@testdir}/TC_Swiftiply/test_serve_static_file_xsendfile/sendfile_client.rb 127.0.0.1:29999"])
 			# Make sure everything has time to start, connect, etc... before
 			# the tests are executed.
@@ -449,6 +459,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_static_file_xsendfile.conf"])
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src #{@@testdir}/TC_Swiftiply/test_serve_static_file_xsendfile/sendfile_client.rb 127.0.0.1:29999"])
 			# Make sure everything has time to start, connect, etc... before
@@ -474,7 +485,7 @@ ECONF
 		dc = File.join(Dir.pwd,'TC_Swiftiply')
 		dr = File.join(dc,'test_ssl')
 		
-		# Before proceding with testing, the code here should determine if the
+		# Before proceeding with testing, the code here should determine if the
 		# EventMachine installed on the system has SSL support built.  If it
 		# does not, don't run the tests.  Instead, report on this fact and
 		# point them at some information about how to reinstall EM so that it
@@ -524,7 +535,7 @@ ECONF
 		conf = YAML.load(ConfBase.to_yaml)
 		conf['map'].first['docroot'] = "#{@@testdir}/TC_Swiftiply/test_ssl/pub"
 		conf['ssl'] = []
-		conf['ssl'] << {'at' => '127.0.0.1:29998', 'certfile' => "#{@@testdir}/TC_Swiftiply/test_ssl/test.cert", 'keyfile' => "#{@@testdir}/TC_Swiftiply/test_ssl/test.key"}
+		conf['ssl'] << {'at' => '127.0.0.1:29998', 'certfile' => "#{@@testdir}/TC_Swiftiply/test_ssl/test.pem", 'keyfile' => "#{@@testdir}/TC_Swiftiply/test_ssl/test.pem"}
 		conf['map'].first['sendfileroot'] = "#{@@testdir}/TC_Swiftiply/test_serve_static_file_xsendfile/priv"
 		conf['map'].first['enable_sendfile_404'] = 'true'
 		
@@ -533,20 +544,24 @@ ECONF
 		DeleteQueue << conf_file
 		
 		assert_nothing_raised("setup failed") do
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+      SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply/test_ssl",
+        :cmd => ["openssl req -x509 -nodes -days 365 -subj '/C=US/ST=Oregon/L=Portland/CN=127.0.0.1' -newkey rsa:1024 -keyout test.pem -out test.pem"])
+      sleep 3
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_ssl.conf"])
-			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+      sleep 2
+			KillQueue << SwiftcoreTestSupport::create_process(:dir => "#{@@testdir}/TC_Swiftiply",
 				:cmd => ["#{Ruby} -I../../src #{@@testdir}/TC_Swiftiply/test_serve_static_file_xsendfile/sendfile_client.rb 127.0.0.1:29999"])
 			# Make sure everything has time to start, connect, etc... before
 			# the tests are executed.
 			sleep 1
 		end
 
-		response = get_url_https('127.0.0.1',29998,smallfile_name)
+		response = get_url_https('127.0.0.1',29998,smallfile_name, "#{@@testdir}/TC_Swiftiply/test_ssl/test.pem")
 		small_etag = response['ETag']
 		assert_equal("alfalfa leafcutter bee\n",response.body)		
 		
-		response = get_url_https('127.0.0.1',29998,'this_isnt_there')
+		response = get_url_https('127.0.0.1',29998,'this_isnt_there', "#{@@testdir}/TC_Swiftiply/test_ssl/test.pem")
 		assert(Net::HTTPNotFound === response)
 		assert(response.body =~ /this_isnt_there could not be found/)
 		
@@ -596,6 +611,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_static_file_from_cachedir.conf"])
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999"])
 			# Make sure everything has time to start, connect, etc... before
@@ -633,6 +649,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_normal_proxy.conf"])
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999"])
 			sleep 1
@@ -640,28 +657,40 @@ ECONF
 		
 		# Normal request
 		response = get_url('127.0.0.1',29998,'/xyzzy')
-		assert_equal("GET /xyzzy HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+    assert_match(/^GET \/xyzzy HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 		
 		# With query string params.
 		response = get_url('127.0.0.1',29998,'/foo/bar/bam?Q=1234')
-		assert_equal("GET /foo/bar/bam?Q=1234 HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+    assert_match(/^GET \/foo\/bar\/bam\?Q=1234 HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 
 		# POST request
 		response = post_url('127.0.0.1',29998,'/xyzzy')
-		assert_equal("POST /xyzzy HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+    assert_match(/^POST \/xyzzy HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 		
 		# And another verb; different verbs should be irrelevant
 		response = delete_url('127.0.0.1',29998,'/xyzzy')
-		assert_equal("DELETE /xyzzy HTTP/1.1\r\nAccept: */*\r\n",response.body[0..36])
+    assert_match(/^DELETE \/xyzzy HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 		
 		# A non-matching hostname, to trigger default handling
 		response = get_url('localhost',29998,'/xyzzy')
-		assert_equal("GET /xyzzy HTTP/1.1\r\nAccept: */*\r\nHost: localhost:29998\r\n\r\n",response.body)
+    assert_match(/^GET \/xyzzy HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: localhost:29998/, response.body)
 		
 		# A very large url
-		u = '/abcdefghijklmnopqrstuvwxyz'*100
-		response = get_url('127.0.0.1',29998,u)
-		assert_equal("GET #{u} HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+		u = 'abcdefghijklmnopqrstuvwxyz'*100
+		response = get_url('127.0.0.1',29998,"/#{u}")
+    assert_match(/^GET \/#{u} HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 	end
 	
 	# Test redeployable requests.
@@ -683,6 +712,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_redeployable.conf"])
+      sleep 2
 			secpid = SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src slow_echo_client 127.0.0.1:29999"])
 			sleep 1
@@ -702,7 +732,9 @@ ECONF
 		end
 
 		urlthread.join
-		assert_equal("GET /slo_gin_fizz HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+    assert_match(/^GET \/slo_gin_fizz HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 		
 		sleep 1
 
@@ -764,6 +796,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_normal_proxy_with_authentication.conf"])
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999 abcdef1234"])
 			sleep 1
@@ -771,7 +804,9 @@ ECONF
 		
 		# Normal request
 		response = get_url('127.0.0.1',29998,'/xyzzy')
-		assert_equal("GET /xyzzy HTTP/1.1\r\nAccept: */*\r\nHost: 127.0.0.1:29998\r\n\r\n",response.body)
+    assert_match(/^GET \/xyzzy HTTP\/1\.1/, response.body)
+    assert_match(/Accept: *\/*/, response.body)
+    assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 	end
 
 	def test_http_404_error
@@ -792,6 +827,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_404_error.conf"])
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../bin/echo_client 127.0.0.1:29999 abcdef1234"])
 			sleep 1
@@ -817,7 +853,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_404_error.conf"])
-			sleep 1
+      sleep 2
 		end
 		
 		response = get_url('127.0.0.1',29998,'/xyzzy')
@@ -840,10 +876,10 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_sensible_error1.conf"])
-			sleep 1
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_sensible_error1.conf"])
-			sleep 1
+      sleep 2
 		end
 		puts "\n---------------------------------------------------------------"
 		puts "| The above exception was just a test.  It should have started  |"
@@ -865,7 +901,7 @@ ECONF
 		assert_nothing_raised("setup failed") do
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_mongrel.conf"])
-			sleep 1
+      sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
 				:cmd => ["#{Ruby} -I../../../src swiftiplied_hello.rb"])
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),

@@ -1,10 +1,11 @@
 require 'test/unit'
-require 'external/test_support'
+require './external/test_support'
 SwiftcoreTestSupport.set_src_dir
 require 'rbconfig'
 require 'net/http'
 require 'swiftcore/Swiftiply'
 require 'yaml'
+require "minitest/unit"
 
 class TC_ProxyBag < Test::Unit::TestCase
 	@@testdir = SwiftcoreTestSupport.test_dir(__FILE__)
