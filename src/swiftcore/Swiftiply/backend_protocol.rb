@@ -50,31 +50,19 @@ module Swiftcore
       def receive_data data
         unless @initialized
           begin
-            puts "Recived Data Initial"
-            p data
             # preamble = data.slice!(0..24)
             preamble = data[0..24]
-            puts "Preamble"
-            p preamble
             data   = data[25..-1] || C_empty
-            puts "Data"
-            p data
             keylen = preamble[23..24].to_i(16)
-            puts "Keylen #{keylen}"
             keylen = 0 if keylen < 0
             key = keylen > 0 ? data.slice!(0..(keylen - 1)) : C_empty
-            puts "Key"
-            p key
-            puts "Data"
-            p data
             #if preamble[0..10] == Cswiftclient and key == ProxyBag.get_key(@name)
             if preamble.index(Cswiftclient) == 0 and key == ProxyBag.get_key(@name)
-              puts "Passed with #{key}"
               @id = preamble[11..22]
               ProxyBag.add_id(self, @id)
               @initialized = true
             else
-              puts "Nope Unauthenticated"
+              puts "Unauthenticated Connection"
               # The worker that connected did not present the proper authentication,
               # so something is fishy; time to cut bait.
               close_connection
@@ -125,14 +113,14 @@ module Swiftcore
                   @associate.close_connection_after_writing
                   @dont_send_data = true
                 else
-                  puts "Writing Headers"
-                  p @headers+Crnrn
+                  #put "Writing Headers"
+                  #p @headers+Crnrn
                   @associate.send_data @headers + Crnrn
                 end
               end
             else
-              puts "Writing Headers"
-              p @headers+Crnrn
+              #put "Writing Headers"
+              #p @headers+Crnrn
               @associate.send_data @headers + Crnrn
             end
 
@@ -140,14 +128,13 @@ module Swiftcore
             # on, unless the headers being returned indicate that the connection
             # should be closed.
             # So, check for a 'Connection: Closed' header.
-            puts "Keep-Alive is #{@associate.keepalive}"
-            @associate.keepalive = true
+            #put "Keep-Alive is #{@associate.keepalive}"
             if keepalive = @associate.keepalive
               keepalive = false if @headers =~ /Connection: [Cc]lose/
               if @associate_http_version == C1_0
                 keepalive = false unless @headers == /Connection: [Kk]eep-[Aa]live/i
               end
-              puts "Keep-Alive is reset to #{keepalive}"
+              #put "Keep-Alive is reset to #{keepalive}"
             end
           else
             @headers << data
@@ -163,16 +150,16 @@ module Swiftcore
             @content_sent = @content_length
           else
             if @look_for_close
-              puts "Looking for <!--SC->"
+              #put "Looking for <!--SC->"
               tdata = @push_back ? @push_back + data : data
               @push_back = nil
               match = /^([\S\s]*)<!--SC->([\S\s]*)$/.match(tdata)
               if (match)
-                puts "Found <!--SC->"
+                #put "Found <!--SC->"
                 @associate.send_data match[1] if (match[1].length > 0) unless @dont_send_data
                 @content_sent += match[1].length
                 subsequent_data = match[2] if match[2].length > 0
-                puts "Found <!--SC-> with #{subsequent_data ? subsequent_data.length : "no"} subsequent data"
+                #put "Found <!--SC-> with #{subsequent_data ? subsequent_data.length : "no"} subsequent data"
                 @swiftiply_close = true
               else
                 # Ugly and Slow
@@ -210,20 +197,20 @@ module Swiftcore
                 if @push_back
                   if sdata.length > 0
                     @associate.send_data sdata unless @dont_send_data
-                    puts "Sending chunk of #{sdata.length}"
+                    #put "Sending chunk of #{sdata.length}"
                     @content_sent += sdata.length
                     subsequent_data = nil
                   end
                 else
                   @associate.send_data tdata unless @dont_send_data
-                  puts "Sending chunk of #{tdata.length}"
+                  #put "Sending chunk of #{tdata.length}"
                   @content_sent += tdata.length
                   subsequent_data = nil
                 end
               end
             else
               @associate.send_data data unless @dont_send_data
-              puts "Sending chunk of #{data.length}"
+              #put "Sending chunk of #{data.length}"
               subsequent_data = nil
               @content_sent += data.length
             end
@@ -233,7 +220,7 @@ module Swiftcore
           # before the connection closes.   # @content_length of nil, means we are chunking.
           # We keep doing that util we find a @swiftiply_close, or something bad happens.
 
-          puts "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
+          #put "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
           if @content_length && !@look_for_close && @content_sent >= @content_length || @swiftiply_close
             # If @dont_send_data is set, then the connection is going to be closed elsewhere.
             unless @dont_send_data
