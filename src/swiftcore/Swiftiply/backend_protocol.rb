@@ -156,7 +156,9 @@ module Swiftcore
         keepalive = true
         puts "Keep-Alive is set forcably to #{keepalive}"
         if @headers_completed
-          if @content_length && @content_length >= 0 && @content_sent + data.length >= @content_length
+          # We have sent the headers and separator already. Keep sending any counted content.
+          # Content-Length: 0 is handled below.
+          if @content_length && @content_length > 0 && @content_sent + data.length >= @content_length
             @associate.send_data data.slice(0, @content_length - @content_sent) unless @dont_send_data
             subsequent_data = data.slice(@content_length - @content_sent, data.length - @content_sent)
             @content_sent = @content_length
@@ -221,8 +223,12 @@ module Swiftcore
               @content_sent += data.length
             end
           end
+          # Check to see if we are done.
+          # A Content-Length: 0 means that either no data is to be sent, or it is all to be sent
+          # before the connection closes.
+
           puts "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
-          if @content_length && @content_length >= 0 && @content_sent >= @content_length || @swiftiply_close
+          if @content_length && @content_sent >= @content_length || @swiftiply_close
             # If @dont_send_data is set, then the connection is going to be closed elsewhere.
             unless @dont_send_data
               # Check to see if keepalive is enabled.
