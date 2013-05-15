@@ -61,7 +61,7 @@ module Swiftcore
               @id = preamble[11..22]
               ProxyBag.add_id(self, @id)
               @initialized = true
-              puts "New Backend: #{preamble}"
+              puts "New Backend: #{preamble} #{self}"
             else
               puts "New Backend: Unauthenticated Connection"
               # The worker that connected did not present the proper authentication,
