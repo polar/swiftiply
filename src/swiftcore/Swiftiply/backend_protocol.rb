@@ -223,7 +223,7 @@ module Swiftcore
 
           #put "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
           if @content_length && !@look_for_close && @content_sent >= @content_length || @swiftiply_close
-            puts "#{id}:done ka=#{keepalive} cl=#{@content_length} cs=#{@content_sent} #{@swiftiply_close ? "Swifty Closed " : "" }#{@headers[0..60].inspect}"
+            puts "#{__id__}:done ka=#{keepalive} cl=#{@content_length} cs=#{@content_sent} #{@swiftiply_close ? "Swifty Closed " : "" }#{@headers[0..60].inspect}"
             # If @dont_send_data is set, then the connection is going to be closed elsewhere.
             unless @dont_send_data
               # Check to see if keepalive is enabled.
