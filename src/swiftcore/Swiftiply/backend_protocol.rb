@@ -222,6 +222,7 @@ module Swiftcore
 
           #put "headers_completed2 #{id} content_length #{@content_length} - sent #{@content_sent} close #{@swiftiply_close} data.length #{data.length} subsequent_data.length #{subsequent_data ? subsequent_data.length : "nil"}"
           if @content_length && !@look_for_close && @content_sent >= @content_length || @swiftiply_close
+            puts "Done: cl=#{@content_length} cs=#{@content_sent} #{@swiftiply_close ? "Swifty Closed " : "" }#{@headers[0..80]}"
             # If @dont_send_data is set, then the connection is going to be closed elsewhere.
             unless @dont_send_data
               # Check to see if keepalive is enabled.
@@ -242,7 +243,6 @@ module Swiftcore
             if subsequent_data && keepalive
               self.receive_data(subsequent_data)
             else
-              puts "Done: #{@headers[0..80]}"
               @associate = nil
               ProxyBag.add_server self
             end
