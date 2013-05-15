@@ -229,7 +229,6 @@ module Swiftcore
                 @associate.reset_state
                 ProxyBag.remove_client(self) unless @associate
               else
-                puts "Closing Connection after write"
                 @associate.close_connection_after_writing
               end
             end
@@ -243,7 +242,7 @@ module Swiftcore
             if subsequent_data && keepalive
               self.receive_data(subsequent_data)
             else
-              puts "Done with request"
+              puts "Done: #{@headers[0..80]}"
               @associate = nil
               ProxyBag.add_server self
             end
