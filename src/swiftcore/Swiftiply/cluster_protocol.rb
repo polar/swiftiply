@@ -174,7 +174,7 @@ module Swiftcore
 						if @name
 							unless ProxyBag.keepalive(@name) == false
 								if @http_version == C1_0
-									if data =~ /Connection: Keep-Alive/i
+									if data =~ /Connection: [Kk]eep-[Aa]live/i
 										# Nonstandard HTTP 1.0 situation; apply keepalive header.
 										@connection_header = CConnection_KeepAlive
 									else
