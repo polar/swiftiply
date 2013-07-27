@@ -24,7 +24,7 @@ module Mongrel
 
 	C400Header = "HTTP/1.0 400 Bad Request\r\nContent-Type: text/plain\r\nServer: Swiftiplied Mongrel 0.6.5\r\nConnection: close\r\n\r\n"
 	
-	class MongrelProtocol < SwiftiplyClientProtocol
+	class SwiftiplyMongrelProtocol < SwiftiplyClientProtocol
 
 		def post_init
 			@parser = HttpParser.new
@@ -146,7 +146,7 @@ module Mongrel
 				EventMachine.run do
 					EM.set_timer_quantum(5)
 					begin
-						MongrelProtocol.connect(@host,@port.to_i,@key)
+            SwiftiplyMongrelProtocol.connect(@host,@port.to_i,@key)
 					rescue StopServer
 						EventMachine.stop_event_loop
 					end
@@ -230,6 +230,7 @@ module Mongrel
 			@body_sent = false
 			@header_sent = false
 			@status_sent = false
+      @packetize = false
 			@http_version = http_version
 			@keepalive = keepalive
 		end
@@ -242,14 +243,22 @@ module Mongrel
 					rescue Object => exc
 						break
 					end
-				end
+        end
 			end
 			@body_sent = true
 		end
 
 		def send_status(content_length=@body.length)
 			unless @status_sent
-				@header[CContentLength] = content_length if content_length && @status != 304
+        if content_length
+          if @status != 304
+            @header[CContentLength] = content_length
+          end
+          @packetize = false
+        else
+          @header['X-Swiftiply-Close'] = "true"
+          @packetize = true
+        end
 				if @keepalive
 					write("HTTP/1.1 #{@status} #{@reason || HTTP_STATUS_CODES[@status]}\r\nConnection: Keep-Alive\r\n")
 				else
@@ -260,6 +269,12 @@ module Mongrel
 		end
 
 		def write(data)
+      puts "write data #{data.length} #{[@status_sent, @header_sent, @packetize].inspect}"
+      if @status_sent && @header_sent && @packetize
+        puts "Sending packet #{data.length}"
+        @socket.send_data "%08d" % data.length
+        puts "Sending chunk #{data.length}"
+      end
 			@socket.send_data data
 		end
 
@@ -269,10 +284,14 @@ module Mongrel
 			raise details
 		end
 
-		def finished
+    def finished
 			send_status
 			send_header
 			send_body
+      if @packetize
+        puts "Sending Close"
+        @socket.send_data "--------"
+      end
 		end
 	end
 	

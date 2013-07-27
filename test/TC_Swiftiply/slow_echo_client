@@ -12,7 +12,11 @@ class SlowEchoClient < SwiftiplyClientProtocol
 		@httpdata << data
       		
 		unless @timer_set
-			EventMachine.add_timer(2) {self.send_http_data(@httpdata); self.close_connection_after_writing}
+
+			EventMachine.add_timer(2) {
+        self.send_http_data(@httpdata)
+        self.close_connection_after_writing
+      }
 			@timer_set = true
 		end
 	end

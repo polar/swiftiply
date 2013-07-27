@@ -1,11 +1,6 @@
-
-
-puts "FUCKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK\n"
-
-
 begin
 	load_attempted ||= false
-	require 'swiftcore/swiftiplied_mongrel'
+	require 'swiftcore/swiftiplied_evented_mongrel'
 rescue LoadError => e
 	unless load_attempted
 		load_attempted = true

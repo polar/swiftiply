@@ -87,7 +87,7 @@ ECONF
 		end
 		 
 		while p = KillQueue.pop do
-			Process.kill("SIGKILL",p) if p
+			Process.kill("SIGTERM",p) if p
 			Process.wait p if p
     end
     sleep 4
@@ -171,9 +171,9 @@ ECONF
 		end
 		
 		sleep 1
-		
-		response = get_url('127.0.0.1',29998,'/hello')
-		assert_equal("hello!\n",response.body)
+
+    response = get_url('127.0.0.1',29998,'/hello')
+    assert_equal("hello!\n",response.body)
 		
 		response = get_url('127.0.0.1',29998,'/dir')
 		assert_equal("<html><head><title>Directory Listing",response.body[0..35])
@@ -692,6 +692,67 @@ ECONF
     assert_match(/Accept: *\/*/, response.body)
     assert_match(/Host: 127\.0\.0\.1:29998/, response.body)
 	end
+
+  def test_serve_normal_proxy_chunked
+    puts "\nTesting Normal Proxy Action for Chunked"
+    dc = File.join(Dir.pwd,'TC_Swiftiply')
+    dr = File.join(dc,'test_serve_normal_proxy')
+
+    conf_file = File.join(dc,'test_serve_normal_proxy.conf')
+    File.open(conf_file,'w+') {|fh| fh.write ConfBase.to_yaml}
+    DeleteQueue << conf_file
+
+    assert_nothing_raised("setup failed") do
+      KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+                                                        :cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_normal_proxy.conf"])
+      sleep 2
+      KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+                                                        :cmd => ["#{Ruby} -I../../src chunked_echo_client  127.0.0.1:29999"])
+      sleep 1
+    end
+
+    bigdata = 'x' * 69990
+    bigdata << 'y' * 10
+    response = nil
+
+    # First, make sure that an uninterrupted request of this size is handled.
+
+    assert_nothing_raised do
+      response = post_url('127.0.0.1',29998,'/slo_gin_fizz',bigdata)
+    end
+
+    assert_match(/^chunked echo request 1$/, response.message)
+    response.body =~ /^(xxxxx*)/
+    xs_len = $1.length
+    response.body =~ /(yyyyy*)$/
+    ys_len = $1.length
+    assert_equal(69990,xs_len)
+    assert_equal(10,ys_len)
+
+    assert_nothing_raised do
+      response = post_url('127.0.0.1',29998,'/slo_gin_fizz',bigdata)
+    end
+
+    # make sure we got a request from the same server. The request
+    # count goes up by one in the message.
+    assert_match(/^chunked echo request 2$/, response.message)
+    response.body =~ /^(xxxxx*)/
+    xs_len = $1.length
+    response.body =~ /(yyyyy*)$/
+    ys_len = $1.length
+    assert_equal(69990,xs_len)
+    assert_equal(10,ys_len)
+
+    # Test Zero Length
+    assert_nothing_raised do
+      response = post_url('127.0.0.1',29998,'/slo_gin_fizz',"")
+    end
+
+    # make sure we got a request from the same server. The request
+    # count goes up by one in the message.
+    assert_match(/^chunked echo request 3$/, response.message)
+    response.body == ""
+  end
 	
 	# Test redeployable requests.
 	
@@ -742,7 +803,7 @@ ECONF
 		bigdata << 'y' * 10
 		response = nil
 
-		# First, make sure that an ininterrupted request of this size is handled.
+		# First, make sure that an uninterrupted request of this size is handled.
 		
 		assert_nothing_raised do
 			response = post_url('127.0.0.1',29998,'/slo_gin_fizz',bigdata)
@@ -903,17 +964,25 @@ ECONF
 				:cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_mongrel.conf"])
       sleep 2
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
-				:cmd => ["#{Ruby} -I../../../src swiftiplied_hello.rb"])
+				:cmd => ["#{Ruby} -I../../../src swiftiplied_hello.rb"],
+        :out => [ "test1_out.log", "w", 0666],
+        :err => [ "test1_err.log", "w", 0666])
 			KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
-				:cmd => ["#{Ruby} -I../../../src swiftiplied_hello.rb"])
+				:cmd => ["#{Ruby} -I../../../src swiftiplied_hello.rb"],
+        :out => [ "test2_out.log", "w", 0666],
+        :err => [ "test2_err.log", "w", 0666])
 			sleep 1
 		end
 		
 		response = httpclient('127.0.0.1',29998,"http://127.0.0.1",'')
 		assert(response[:headers].any? {|x| x =~ /404\s+not\s+found/i})
 
-		response = get_url('127.0.0.1',29998,'/hello')
-		assert_equal("hello!\n",response.body)
+    response = get_url('127.0.0.1',29998,'/hello')
+    assert_equal("hello!\n",response.body)
+
+    response = get_url('127.0.0.1',29998,'/chunked')
+    assert_equal(3000,response.body.length)
+    assert_equal("0" * 1000 + "1" * 1000 + "2" * 1000, response.body)
 		
 		response = get_url('127.0.0.1',29998,'/dir')
 		assert_equal("<html><head><title>Directory Listing",response.body[0..35])
@@ -929,6 +998,59 @@ ECONF
 			r =~ /^(Requests per second.*)$/
 			puts "Swiftiply -> Swiftiplied Mongrel, concurrency of 25 with Keep-Alive\n#{$1}"
 		end
-	end
+  end
+
+
+  def test_swiftiplied_evented_mongrel
+    puts "\nTesting Swiftiplied Mongrel"
+
+    dc = File.join(Dir.pwd,'TC_Swiftiply')
+    dr = File.join(dc,'test_serve_normal_proxy')
+
+    conf_file = File.join(dc,'test_serve_mongrel.conf')
+    File.open(conf_file,'w+') {|fh| fh.write ConfBase.to_yaml}
+    DeleteQueue << conf_file
+
+    kq = []
+    assert_nothing_raised("setup failed") do
+      KillQueue << SwiftcoreTestSupport::create_process(:dir => 'TC_Swiftiply',
+                                                        :cmd => ["#{Ruby} -I../../src ../../bin/swiftiply -c test_serve_mongrel.conf"])
+      sleep 2
+      KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
+                                                        :cmd => ["#{Ruby} -I../../../src swiftiplied_evented_hello.rb"],
+                                                        :out => [ "test1_out.log", "w", 0666],
+                                                        :err => [ "test1_err.log", "w", 0666])
+      KillQueue << SwiftcoreTestSupport::create_process(:dir => File.join('TC_Swiftiply','mongrel'),
+                                                        :cmd => ["#{Ruby} -I../../../src swiftiplied_evented_hello.rb"],
+                                                        :out => [ "test2_out.log", "w", 0666],
+                                                        :err => [ "test2_err.log", "w", 0666])
+      sleep 1
+    end
+
+    response = httpclient('127.0.0.1',29998,"http://127.0.0.1",'')
+    assert(response[:headers].any? {|x| x =~ /404\s+not\s+found/i})
+
+    response = get_url('127.0.0.1',29998,'/hello')
+    assert_equal("hello!\n",response.body)
+
+    response = get_url('127.0.0.1',29998,'/chunked')
+    assert_equal(3000,response.body.length)
+    assert_equal("0" * 1000 + "1" * 1000 + "2" * 1000, response.body)
+
+    response = get_url('127.0.0.1',29998,'/dir')
+    assert_equal("<html><head><title>Directory Listing",response.body[0..35])
+
+    ab = `which ab`.chomp
+    unless ab == ''
+      r = `#{ab} -n 10000 -c 25 http://127.0.0.1:29998/hello`
+      r =~ /^(Requests per second.*)$/
+      puts "Swiftiply -> Swiftiplied Mongrel, concurrency of 25\n#{$1}"
+    end
+    unless ab == ''
+      r = `#{ab} -n 100000 -k -c 25 http://127.0.0.1:29998/hello`
+      r =~ /^(Requests per second.*)$/
+      puts "Swiftiply -> Swiftiplied Mongrel, concurrency of 25 with Keep-Alive\n#{$1}"
+    end
+  end
 	
 end

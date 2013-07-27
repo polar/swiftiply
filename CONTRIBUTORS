@@ -6,3 +6,6 @@ Ezra Zygmuntowicz contributed swiftiply_mongrel_rails and edits to
 mongrel_rails.
 
 Flip Sasser contributed the original version of the swiftiplyctl.
+
+Dr. Polar Humenn rewrote the backend protocol to handle chunked
+responses correctly. (July 28, 2013)

@@ -1,0 +1,78 @@
+require 'swiftcore/Swiftiply/swiftiply_client'
+
+class ChunkedEchoClient < SwiftiplyClientProtocol
+
+	def post_init
+		@headers_sent = false
+    @content_length = nil
+    @headers = ''
+    @request_number = 0
+		super
+	end
+
+  # This echo client receives a POST with some data. We'll echo, but we will not
+  # send back the Content-Length. Using this Swifty protocol, we must send
+  # the X-Swiftiply-Close: true header, and an 8 char 0 padded integer indicating
+  # the packet length. At the end we send the packet length 8char delimiter '--------'
+  # to indicate the end of the connection.
+
+	def receive_data data
+		unless @headers_completed
+      # TODO: This is a little dicey. Only works if we know we got the request from the beginning.
+      if data.include?("\r\n\r\n")
+        @headers_completed = true
+        h, data = data.split(/\r\n\r\n/, 2)
+        #@headers << h << Crnrn
+        if @headers.length > 0
+          @headers << h
+        else
+          @headers = h
+        end
+      end
+      if @headers_completed
+        # Get rid of the content-length header, so we'll chunk it.
+        if @headers =~ /Content-[Ll]ength: *([^\r]+)/
+          @content_length = $1.to_i
+        end
+        @request_number += 1
+        h = { "X-Swiftiply-Close" => true }
+        hs = DefaultHeaders.merge(h)
+        header_string = ''
+        hs.each {|k,v| header_string << "#{k}: #{v}\r\n"}
+        send_data("HTTP/1.1 200 chunked echo request #{@request_number}\r\n#{header_string}\r\n")
+      end
+    end
+
+    if @headers_completed
+      packet_length = "%08d" % data.length
+      send_data packet_length
+      send_data data
+      if @content_length
+        @content_length -= data.length
+        if @content_length == 0
+          terminate_request
+        end
+      end
+    end
+  end
+
+  def unbind
+    send_data "--------"
+    close_connection_after_writing
+  end
+
+  def terminate_request
+    send_data("--------")
+    # Get ready for the next HTTP request.
+    @content_length = nil
+    @headers = ''
+    @headers_completed = false
+  end
+end
+
+if ARGV[0] and ARGV[0].index(/:/) > 0
+	h,p = ARGV[0].split(/:/,2)
+	EventMachine.run { ChunkedEchoClient.connect(h,p.to_i) }
+else
+	puts "slow_echo_client HOST:PORT"
+end

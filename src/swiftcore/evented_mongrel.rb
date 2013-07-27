@@ -183,20 +183,48 @@ module Mongrel
 	end
 
 	class HttpResponse
-		def send_file(path, small_file = false)
-			File.open(path, "rb") do |f|
-				while chunk = f.read(Const::CHUNK_SIZE) and chunk.length > 0
-					begin
-						write(chunk)
-					rescue Object => exc
-						break
-					end
-				end
-			end
-			@body_sent = true
-		end
+
+    CContentLength = 'Content-Length'.freeze
+    C1_1 = '1.1'.freeze
+
+    def send_status(content_length=@body.length)
+      unless @status_sent
+        if content_length
+          if @status != 304
+            @header[CContentLength] = content_length
+          end
+          @packetize = false
+        else
+          @header['X-Swiftiply-Close'] = "true"
+          @packetize = true
+        end
+        if @keepalive
+          write("HTTP/1.1 #{@status} #{@reason || HTTP_STATUS_CODES[@status]}\r\nConnection: Keep-Alive\r\n")
+        else
+          write("HTTP/1.1 #{@status} #{@reason || HTTP_STATUS_CODES[@status]}\r\nConnection: Close\r\n")
+        end
+        @status_sent = true
+      end
+    end
+
+    def send_file(path, small_file = false)
+      File.open(path, "rb") do |f|
+        while chunk = f.read(Const::CHUNK_SIZE) and chunk.length > 0
+          begin
+            write(chunk)
+          rescue Object => exc
+            break
+          end
+        end
+        write("--------") if @packetize
+      end
+      @body_sent = true
+    end
 
 		def write(data)
+      if @status_sent && @header_sent && @packetize
+        @socket.send_data "%08d" % data.length
+      end
 			@socket.send_data data
 		end
 
@@ -214,6 +242,7 @@ module Mongrel
 			send_status
 			send_header
 			send_body
+      @socket.send_data "--------" if @packetize
 			@socket.close_connection_after_writing
 		end
 	end

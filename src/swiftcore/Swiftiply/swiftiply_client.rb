@@ -50,12 +50,14 @@ class SwiftiplyClientProtocol < EventMachine::Connection
 	
 	def connection_completed
 		send_data @id
-	end
+  end
+
 
 	def unbind
 		::EventMachine.add_timer(rand(2)) {self.class.connect(@hostname,@port,@key)}
-	end
-	
+  end
+
+  # TODO: Does this method really belong here? Shouldn't be in the tests?
 	def send_http_data(data,h = {},status = 200, msg = C_dotdotdot)
 		headers = DefaultHeaders.merge(h)
 		headers[CContentLength] = data.length

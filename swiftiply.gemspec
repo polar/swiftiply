@@ -3,6 +3,7 @@
 #   http://swiftiply.swiftcore.org
 #   Copyright 2007,2008 Kirk Haines
 #   wyhaines@gmail.com
+#   Copyright 2013 Polar Humenn
 #
 #   Licensed under the Ruby License.  See the README for details.
 #
@@ -10,9 +11,9 @@
 
 spec = Gem::Specification.new do |s|
   s.name              = 'swiftiply'
-  s.author            = %q(Kirk Haines)
-  s.email             = %q(wyhaines@gmail.com)
-  s.version           = '0.6.4'
+  s.author            = %q(Kirk Haines, Dr. Polar Humenn)
+  s.email             = %q(wyhaines@gmail.com, polar@syr.edu)
+  s.version           = '0.7.0.pre'
   s.summary           = %q(A fast clustering proxy for web applications.)
   s.platform          = Gem::Platform::RUBY
 

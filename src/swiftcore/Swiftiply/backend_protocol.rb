@@ -35,7 +35,7 @@ module Swiftcore
       def setup
         @headers      = ''
         @headers_completed = @dont_send_data = false
-        #@content_length = nil
+        @content_length = nil
         @content_sent = 0
         @filter       = self.class.filter
       end
@@ -46,6 +46,9 @@ module Swiftcore
       # if 'Transfer-encoding: chunked' is present, assume chunked
       # encoding.  Otherwise be paranoid; something isn't the way we like
       # it to be.
+
+      # This call is also recursive when there is subsequent data after
+      # content length is sent.
 
       def receive_data data
         unless @initialized
@@ -61,7 +64,7 @@ module Swiftcore
               @id = preamble[11..22]
               ProxyBag.add_id(self, @id)
               @initialized = true
-              puts "New Backend: #{id} - #{self.__id__}"
+              puts "New Backend: #{id} - #{self.__id__} #{comm_inactivity_timeout}"
             else
               puts "New Backend: Unauthenticated Connection"
               # The worker that connected did not present the proper authentication,
@@ -101,6 +104,7 @@ module Swiftcore
             # Our Swiftiply Close Header. We are going to look for the <!--SC-> delimeter.
             if @headers =~ /X-Swiftiply-Close:/
               @look_for_close = true
+              @packet_length_literal = ""
             end
 
             if @permit_xsendfile && @headers =~ /X-[Ss]endfile: *([^\r]+)/
@@ -135,8 +139,9 @@ module Swiftcore
               if @associate_http_version == C1_0
                 keepalive = false unless @headers == /Connection: [Kk]eep-[Aa]live/i
               end
-              #put "Keep-Alive is reset to #{keepalive}"
+              puts "Keep-Alive is reset to #{keepalive}"
             end
+            puts "#{__id__}:START ka=#{keepalive} cl=#{@content_length}"
           else
             @headers << data
           end
@@ -146,67 +151,64 @@ module Swiftcore
           # We have sent the headers and separator already. Keep sending any counted content.
           # Content-Length: 0 is handled below.
           if @content_length && @content_length > 0 && @content_sent + data.length >= @content_length
-            @associate.send_data data.slice(0, @content_length - @content_sent) unless @dont_send_data
-            subsequent_data = data.slice(@content_length - @content_sent, data.length - @content_sent)
+            # We obviously can do below with less statements, but for sanity sake of somebody reading it...
+            send_data_length = @content_length - @content_sent
+            last_index = send_data_length - 1
+            if ! @dont_send_data
+              @associate.send_data data[0..last_index]
+            end
+            # We've sent it all @content_sent += send_data_length, i.e.
             @content_sent = @content_length
+            subsequent_length = data.length - @content_length
+            if subsequent_length > 0
+              subsequent_data = data[last_index + 1..data.length - 1]
+            else
+              # We flag 0 subsequent data as nil for a conditional below.
+              subsequent_data = nil
+            end
           else
             if @look_for_close
-              #put "Looking for <!--SC->"
-              tdata = @push_back ? @push_back + data : data
-              @push_back = nil
-              match = /^([\S\s]*)<!--SC->([\S\s]*)$/.match(tdata)
-              if (match)
-                #put "Found <!--SC->"
-                @associate.send_data match[1] if (match[1].length > 0) unless @dont_send_data
-                @content_sent += match[1].length
-                subsequent_data = match[2] if match[2].length > 0
-                #put "Found <!--SC-> with #{subsequent_data ? subsequent_data.length : "no"} subsequent data"
-                @swiftiply_close = true
-              else
-                # Ugly and Slow
-                if tdata.length > 7
-                  fdata = tdata.slice(0, tdata.length-7)
-                  tdata = tdata.slice(-7, 7)
-                else
-                  fdata = ""
+              while data.length > 0 && ! @swiftiply_close do
+                if @packet_length_literal && @packet_length_literal.length < 8
+                  needed = 8-@packet_length_literal.length
+                  @packet_length_literal += data[0..needed-1]
+                  data = data[needed..data.length-1]
                 end
-                if (match = /^([\S\s]*)<!--SC-$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<!--SC-"
-                elsif (match = /^([\S\s]*)<!--SC$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<!--SC"
-                elsif (match = /^([\S\s]*)<!--S$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<!--S"
-                elsif (match = /^([\S\s]*)<!--$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<!--"
-                elsif (match = /^([\S\s]*)<!-$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<!-"
-                elsif (match = /^([\S\s]*)<!$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<!"
-                elsif (match = /^([\S\s]*)<$/.match(tdata))
-                  sdata = fdata + match[1]
-                  @push_back = "<"
-                else
-                  tdata = fdata + tdata
-                  @push_back = nil
-                end
-                if @push_back
-                  if sdata.length > 0
-                    @associate.send_data sdata unless @dont_send_data
-                    #put "Sending chunk of #{sdata.length}"
-                    @content_sent += sdata.length
-                    subsequent_data = nil
+                if @packet_length_literal && @packet_length_literal.length == 8
+                  if @packet_length_literal == "--------"
+                    # We have the close
+                    @swiftiply_close = true
+                    @packet_length = nil
+                    @packet_length_literal = nil
+                    @packet_received = nil
+                    subsequent_data = data if data.length > 0
+                    break # out of while data.length > 0 && ! @swiftiply_close do
+                  else
+                    @packet_length = @packet_length_literal.to_i
+                    @packet_length_literal = nil
+                    @packet_received = 0
                   end
-                else
-                  @associate.send_data tdata unless @dont_send_data
-                  #put "Sending chunk of #{tdata.length}"
-                  @content_sent += tdata.length
-                  subsequent_data = nil
+                end
+                if @packet_length
+                  if @packet_received < @packet_length
+                    needed = @packet_length - @packet_received
+                    if data.length <= needed
+                      @packet_received += data.length
+                      @associate.send_data data unless @dont_send_data
+                      @content_sent += data.length
+                      data = ""
+                    else
+                      tdata = data[0..needed-1]
+                      @packet_received += needed
+                      @associate.send_data tdata unless @dont_send_data
+                      @content_sent += tdata.length
+                      data = data[needed..data.length-1]
+                    end
+                  end
+                  if @packet_received == @packet_length
+                    @packet_length = nil
+                    @packet_length_literal = ""
+                  end
                 end
               end
             else
@@ -234,14 +236,10 @@ module Swiftcore
                 @associate.close_connection_after_writing
               end
             end
-            @headers_completed = @dont_send_data = nil
             @look_for_close = @swiftiply_close = false
-            @headers      = ''
-            #@headers_completed = false
-            #@content_length = nil
-            @content_sent = 0
-            #setup
+            setup
             if subsequent_data && keepalive
+              puts "subsequent data: #{subsequent_data.length} ka=#{keepalive}"
               self.receive_data(subsequent_data)
             else
               @associate = nil
@@ -264,6 +262,7 @@ module Swiftcore
       # removed from the ProxyBag's backend queue.
 
       def unbind
+        puts "Unbound from Backend!"
         if @associate
           if !@associate.redeployable or @content_length
             @associate.close_connection_after_writing

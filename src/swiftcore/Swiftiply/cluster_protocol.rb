@@ -254,7 +254,7 @@ module Swiftcore
 						@data_pos = @data.length
 
 						# If the request size crosses the size limit, then
-						# disallow redeployent of this request.
+						# disallow redeployment of this request.
 						if @data_len > @redeployable
 							@redeployable = false
 							@data.clear
