@@ -41,5 +41,5 @@ spec = Gem::Specification.new do |s|
       description << "#{line.gsub(/\[\d\]/, '')}"
     end
   end
-  s.description = description[1..-1].join(" ")
+  s.description = description.join(" ")
 end
