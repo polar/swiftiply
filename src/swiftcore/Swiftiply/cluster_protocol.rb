@@ -229,6 +229,10 @@ module Swiftcore
 			def send_503_response
 				ip = Socket::unpack_sockaddr_in(get_peername).last rescue Cunknown_host
 				error = "The request (#{@uri} --> #{@name}), received on #{create_time.asctime} from #{ip} timed out before being deployed to a server for processing."
+        if @associate
+          port, ip = Socket.unpack_sockaddr_in(@associate.get_peername)
+          error += " The connected server that timed out is #{ip}:#{port}."
+        end
 				send_data "#{C503Header}Server Unavailable\n\n#{error}"
 				ProxyBag.logger.log(Cinfo,"Server Unavailable -- #{error}")
 				close_connection_after_writing
