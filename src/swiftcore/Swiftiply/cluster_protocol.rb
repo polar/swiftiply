@@ -232,6 +232,8 @@ module Swiftcore
         if @associate
           port, ip = Socket.unpack_sockaddr_in(@associate.get_peername)
           error += " The connected server that timed out is #{ip}:#{port}."
+        else
+          error += " No available servers."
         end
 				send_data "#{C503Header}Server Unavailable\n\n#{error}"
 				ProxyBag.logger.log(Cinfo,"Server Unavailable -- #{error}")
